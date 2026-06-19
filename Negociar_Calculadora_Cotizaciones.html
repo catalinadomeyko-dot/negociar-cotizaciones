@@ -236,16 +236,32 @@ window.PptxGenJS = !function(e){function n(e){delete c[e]}function o(e){if(p)set
   <div class="card">
     <h2>4. Generar y Guardar en Drive</h2>
     <p style="font-size:.82rem;color:#666;margin-bottom:16px;">
-      Ingresa el <strong>ID de la carpeta Drive</strong> donde se guardará la cotización. Se subirá directamente como PowerPoint editable.
+      Conecta tu Google Drive para guardar la cotización directamente en tu cuenta.
     </p>
-    <div class="field" style="margin-bottom:16px;">
-      <label>ID o URL de la carpeta Drive de la empresa</label>
-      <input type="text" id="driveId" placeholder="https://drive.google.com/drive/folders/1XuknZt... o solo el ID">
-      <div class="hn">La cotización se guardará directamente en esa carpeta como archivo editable en Drive.</div>
+
+    <!-- Auth -->
+    <div style="margin-bottom:16px;">
+      <div id="drive-not-connected" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f8f8f8;border-radius:8px;border:1px solid var(--border);">
+        <span style="font-size:.82rem;color:#666;flex:1;">Google Drive no conectado</span>
+        <button onclick="authDrive()" style="padding:7px 16px;background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;">Conectar mi Drive</button>
+      </div>
+      <div id="drive-connected" style="display:none;align-items:center;gap:12px;padding:12px 16px;background:#F0FFF4;border-radius:8px;border:1px solid #A5D6A7;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#2E7D32"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        <span style="font-size:.82rem;color:#2E7D32;flex:1;">Conectado como <strong id="drive-email"></strong></span>
+        <button onclick="disconnectDrive()" style="padding:5px 12px;background:transparent;color:#aaa;border:1px solid #ddd;border-radius:6px;font-size:.78rem;cursor:pointer;">Desconectar</button>
+      </div>
     </div>
+
+    <!-- Folder -->
+    <div class="field" style="margin-bottom:16px;">
+      <label>Carpeta Drive donde guardar (URL o ID)</label>
+      <input type="text" id="driveId" placeholder="https://drive.google.com/drive/folders/...">
+      <div class="hn">La cotización se guardará en esa carpeta. Si la dejas vacía, va a Mi Unidad.</div>
+    </div>
+
     <button class="btn" id="btn-gen" onclick="genQuote()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      Generar y Subir a Drive
+      Generar y Guardar en Drive
     </button>
     <div class="st" id="st"></div>
     <div id="dr" style="margin-top:12px;font-size:.83rem;display:none;"></div>
@@ -432,7 +448,7 @@ function updateTotal(){
   } else bdEl.style.display="none";
 }
 
-initGoogleAuth();
+initDriveAuth();
 (function(){const t=new Date();document.getElementById("quoteDate").value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;})();
 
 function fmtDate(ds){
@@ -808,49 +824,58 @@ async function genQuote(){
     const safe=companyName.replace(/[^\w\sáéíóúÁÉÍÓÚñÑ-]/g,"").trim().replace(/\s+/g,"_");
     const ds=date.replace(/-/g,"");
 
-    // ── Sube el PPT a Drive via Apps Script (iframe trick para evitar CORS) ────────
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDuVEx93QcM7pt9qJSSomHklEll6WsicAN7GA7nci8ONkvsVes_CLnH2rYYLF6v5yq/exec";
+    // ── Sube al Drive del usuario via OAuth ──────────────────────────────────────
     const driveInput = document.getElementById("driveId").value.trim();
     const folderId   = extractId(driveInput);
     const drEl       = document.getElementById("dr");
     const fileName   = `Programa Negociar® - ${companyName}.pptx`;
 
-    if (folderId) {
+    if (driveAccessToken) {
       showSt("Subiendo cotización a Drive...","ld");
       try {
-        // Obtener el PPTX como base64
-        const pptxBase64 = await pres.write({outputType:"base64"});
+        const pptxBlob = await pres.write({outputType:"blob"});
 
-        // Enviar como text/plain (CORS simple request — sin preflight, sin bloqueo)
-        const folderUrl = driveInput.startsWith("http") ? driveInput : `https://drive.google.com/drive/folders/${folderId}`;
-        const payload = JSON.stringify({file: pptxBase64, fileName: fileName, folderId: folderId});
-
-        const resp = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: {"Content-Type": "text/plain"},
-          body: payload
+        // Crear subcarpeta con nombre de empresa
+        const folderMeta = {name:companyName, mimeType:"application/vnd.google-apps.folder"};
+        if (folderId) folderMeta.parents = [folderId];
+        const folderResp = await fetch("https://www.googleapis.com/drive/v3/files",{
+          method:"POST",
+          headers:{"Authorization":"Bearer "+driveAccessToken,"Content-Type":"application/json"},
+          body:JSON.stringify(folderMeta)
         });
+        const folderData = await folderResp.json();
+        const targetId = folderData.id || folderId;
 
-        const result = await resp.json();
-        if (result.success) {
-          drEl.innerHTML = `✅ <a class="dl" href="${result.url}" target="_blank">Abrir cotización en Drive</a>`;
+        // Subir PPTX a esa carpeta
+        const meta = JSON.stringify({
+          name:fileName,
+          mimeType:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          parents: targetId ? [targetId] : []
+        });
+        const form = new FormData();
+        form.append("metadata", new Blob([meta],{type:"application/json"}));
+        form.append("file", pptxBlob);
+        const upResp = await fetch(
+          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+          {method:"POST", headers:{"Authorization":"Bearer "+driveAccessToken}, body:form}
+        );
+        const uploaded = await upResp.json();
+        if (uploaded.id) {
+          const folderUrl = folderData.id ? `https://drive.google.com/drive/folders/${folderData.id}` : driveInput;
+          drEl.innerHTML = `✅ <a class="dl" href="${uploaded.webViewLink}" target="_blank">📄 Abrir cotización en Drive</a> &nbsp;|&nbsp; <a class="dl" href="${folderUrl}" target="_blank">📁 Carpeta ${companyName}</a>`;
           drEl.style.display = "block";
-          showSt(`✓ Cotización guardada en Drive — carpeta de ${companyName}.`,"ok");
-        } else {
-          throw new Error(result.error || "Error en Apps Script");
-        }
-
+          showSt(`✓ Cotización guardada en tu Drive — carpeta "${companyName}".`,"ok");
+        } else { throw new Error("No se pudo subir"); }
       } catch(err) {
-        console.error("Drive upload error:", err);
+        console.error("Drive error:", err);
         await pres.writeFile({fileName});
         drEl.style.display = "none";
-        showSt("✓ Cotización descargada localmente (error Drive: " + err.message + ").","ok");
+        showSt("✓ Descargada localmente (Drive error: "+err.message+").","ok");
       }
     } else {
-      // Sin folder ID — solo descarga local
       await pres.writeFile({fileName});
       drEl.style.display = "none";
-      showSt("✓ Cotización descargada. Pega el ID o URL de carpeta Drive para subirla automáticamente.","ok");
+      showSt("✓ Cotización descargada. Conecta tu Drive para guardarla automáticamente.","ok");
     }
   }catch(err){console.error(err);showSt("Error: "+err.message,"er");}
   finally{btn.disabled=false;}
