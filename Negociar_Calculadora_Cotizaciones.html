@@ -152,6 +152,7 @@ window.PptxGenJS = !function(e){function n(e){delete c[e]}function o(e){if(p)set
   a.dl{color:var(--orange);font-weight:700;text-decoration:none;} a.dl:hover{text-decoration:underline;}
   @media(max-width:600px){.row2{grid-template-columns:1fr;}.prow{grid-template-columns:22px 1fr;}}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <header>
@@ -656,231 +657,60 @@ slide.addImage({data:"image/png;base64,"+FIRMA_B64,x:4.7299,y:8.4189,w:2.6763,h:
 }
 
 // ── GOOGLE DRIVE ─────────────────────────────────────────────────────────────
-// ── GOOGLE DRIVE INTEGRATION ─────────────────────────────────────────────────
-// Uses Google Identity Services (GIS) + Drive REST API v3
-// No backend needed — pure browser OAuth2 with access token
-
+// ── GOOGLE DRIVE AUTH ────────────────────────────────────────────────────────
 const GAPI_CLIENT_ID = '527554766288-k931983cthfivh2org9td99805ljeh0g.apps.googleusercontent.com';
-const DRIVE_SCOPES   = 'https://www.googleapis.com/auth/drive.file';
-
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 let driveAccessToken = null;
-let driveTokenClient = null;
+let tokenClient = null;
 
-function initGoogleAuth() {
-  // Load GIS script dynamically
-  if (window.google && window.google.accounts) { setupTokenClient(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client';
-  s.onload = setupTokenClient;
-  document.head.appendChild(s);
+function initDriveAuth() {
+  // GIS loaded via <head> script tag — setup when ready
+  if (window.google?.accounts?.oauth2) {
+    setupTokenClient();
+  } else {
+    // Wait for GIS to load
+    window.addEventListener('load', () => {
+      if (window.google?.accounts?.oauth2) setupTokenClient();
+    });
+  }
 }
 
 function setupTokenClient() {
-  if (!window.google?.accounts?.oauth2) return;
-  driveTokenClient = google.accounts.oauth2.initTokenClient({
+  tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GAPI_CLIENT_ID,
-    scope: DRIVE_SCOPES,
-    callback: (resp) => {
-      if (resp.error) { console.error('Drive auth error:', resp); return; }
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { alert('Error conectando Drive: ' + resp.error); return; }
       driveAccessToken = resp.access_token;
-      // Get user email
-      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: 'Bearer ' + driveAccessToken }
-      }).then(r=>r.json()).then(info => {
-        document.getElementById('drive-user-email').textContent = info.email || 'Conectado';
-        document.getElementById('drive-not-connected').style.display = 'none';
-        document.getElementById('drive-connected').style.display = 'flex';
-      });
+      try {
+        const info = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',
+          {headers:{Authorization:'Bearer '+driveAccessToken}}).then(r=>r.json());
+        document.getElementById('drive-email').textContent = info.email || 'Conectado';
+      } catch(e) {
+        document.getElementById('drive-email').textContent = 'Conectado';
+      }
+      document.getElementById('drive-not-connected').style.display = 'none';
+      document.getElementById('drive-connected').style.display = 'flex';
     }
   });
 }
 
 function authDrive() {
-  if (!GAPI_CLIENT_ID) {
-    // No Client ID configured — show instructions
-    showDriveInstructions();
-    return;
+  if (!tokenClient) {
+    // GIS not ready yet — retry
+    setupTokenClient();
+    if (!tokenClient) { alert('Cargando Google... intenta en 2 segundos.'); return; }
   }
-  if (!driveTokenClient) { initGoogleAuth(); setTimeout(authDrive, 800); return; }
-  driveTokenClient.requestAccessToken();
+  tokenClient.requestAccessToken({prompt:'select_account'});
 }
 
 function disconnectDrive() {
-  if (driveAccessToken && window.google?.accounts?.oauth2) {
+  if (driveAccessToken && window.google?.accounts?.oauth2)
     google.accounts.oauth2.revoke(driveAccessToken);
-  }
   driveAccessToken = null;
   document.getElementById('drive-connected').style.display = 'none';
   document.getElementById('drive-not-connected').style.display = 'flex';
-  document.getElementById('drive-user-email').textContent = '';
+  document.getElementById('drive-email').textContent = '';
 }
 
-function showDriveInstructions() {
-  const msg = `Para conectar Google Drive necesitas configurar un Client ID de Google.
-
-Instrucciones rápidas:
-1. Ve a console.cloud.google.com
-2. Crea un proyecto nuevo
-3. Activa "Google Drive API"
-4. En "Credenciales" crea un "OAuth 2.0 Client ID" tipo "Aplicación web"
-5. Agrega tu dominio en "Orígenes autorizados"
-6. Copia el Client ID y pégalo en la variable GAPI_CLIENT_ID del HTML
-
-¿Quieres que el archivo se descargue sin Drive por ahora?`;
-  if (confirm(msg)) {
-    genQuote(true); // skipDrive=true
-  }
-}
-
-// Create folder in Drive via REST API
-async function createDriveFolderAPI(name, parentId) {
-  if (!driveAccessToken) return null;
-  try {
-    const meta = { name, mimeType: 'application/vnd.google-apps.folder' };
-    if (parentId) meta.parents = [parentId];
-    const resp = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + driveAccessToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(meta)
-    });
-    if (!resp.ok) throw new Error('Drive folder API error ' + resp.status);
-    const data = await resp.json();
-    return { folderId: data.id, folderName: data.name,
-             webViewLink: `https://drive.google.com/drive/folders/${data.id}` };
-  } catch(e) { console.error('createFolder:', e); return null; }
-}
-
-// Upload file to Drive folder via multipart upload
-async function uploadFileToDrive(blob, fileName, folderId) {
-  if (!driveAccessToken) return null;
-  try {
-    const meta = JSON.stringify({
-      name: fileName,
-      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      parents: folderId ? [folderId] : []
-    });
-    const form = new FormData();
-    form.append('metadata', new Blob([meta], {type:'application/json'}));
-    form.append('file', blob);
-    const resp = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + driveAccessToken },
-      body: form
-    });
-    if (!resp.ok) throw new Error('Upload error ' + resp.status);
-    return await resp.json();
-  } catch(e) { console.error('uploadFile:', e); return null; }
-}
-
-// Legacy stub (keeps genQuote working if called without Drive)
-async function createFolder(name, parentId) { return null; }
-
-
-async function genQuote(){
-  const contactName=document.getElementById("contactName").value.trim();
-  const companyName=document.getElementById("companyName").value.trim();
-  const date=document.getElementById("quoteDate").value;
-  const tipo=document.getElementById("companyType").value;
-  if(!contactName||!companyName){showSt("Por favor completa nombre del contacto y empresa.","er");return;}
-  const sel=["neg-est","neg-av","com-est"].filter(id=>progs[id].sel);
-  if(!sel.length){showSt("Selecciona al menos un programa.","er");return;}
-  const btn=document.getElementById("btn-gen");
-  btn.disabled=true;
-  showSt("Generando cotización...","ld");
-  try{
-    // Course names for description
-    const cNames={"neg-est":"Negociación Estratégica","neg-av":"Negociación Avanzada","com-est":"Comunicación Estratégica"};
-    let grand=0;
-    const lines=[];
-    const fp=isFullPlan() && fin!=="sence";
-    if(fp){
-      // Full Plan: single row in the quote
-      const pax=parseInt(document.getElementById("pax-neg-est").value)||10;
-      const fpTotal=Math.round(calcFullPlanTotal(pax)*10)/10;
-      const fpUnitario=Math.round((fpTotal/pax)*100)/100;
-      grand+=fpTotal;
-      lines.push({pax, courseName:"Plan Full: Negociación Estratégica + Negociación Avanzada", unitario:fpUnitario, total:fpTotal});
-    } else {
-      sel.filter(id=>id==="neg-est"||id==="neg-av").forEach(id=>{
-        const pax=parseInt(document.getElementById("pax-"+id).value)||10;
-        const r=calcUF(pax,tipo,fin);
-        grand+=r.total;
-        lines.push({pax, courseName:cNames[id], unitario:r.unitario, total:r.total});
-      });
-    }
-    if(sel.includes("com-est")){
-      const pax=parseInt(document.getElementById("pax-com-est").value)||10;
-      const r=calcUF(pax,tipo,fin);
-      grand+=r.total;
-      lines.push({pax, courseName:cNames["com-est"], unitario:r.unitario, total:r.total});
-    }
-    grand=Math.round(grand*10)/10;
-
-    const pres=await buildPPTX({contactName,companyName,date,isSence:fin==="sence",lines,grandTotal:grand});
-    const safe=companyName.replace(/[^\w\sáéíóúÁÉÍÓÚñÑ-]/g,"").trim().replace(/\s+/g,"_");
-    const ds=date.replace(/-/g,"");
-
-    // ── Sube al Drive del usuario via OAuth ──────────────────────────────────────
-    const driveInput = document.getElementById("driveId").value.trim();
-    const folderId   = extractId(driveInput);
-    const drEl       = document.getElementById("dr");
-    const fileName   = `Programa Negociar® - ${companyName}.pptx`;
-
-    if (driveAccessToken) {
-      showSt("Subiendo cotización a Drive...","ld");
-      try {
-        const pptxBlob = await pres.write({outputType:"blob"});
-
-        // Crear subcarpeta con nombre de empresa
-        const folderMeta = {name:companyName, mimeType:"application/vnd.google-apps.folder"};
-        if (folderId) folderMeta.parents = [folderId];
-        const folderResp = await fetch("https://www.googleapis.com/drive/v3/files",{
-          method:"POST",
-          headers:{"Authorization":"Bearer "+driveAccessToken,"Content-Type":"application/json"},
-          body:JSON.stringify(folderMeta)
-        });
-        const folderData = await folderResp.json();
-        const targetId = folderData.id || folderId;
-
-        // Subir PPTX a esa carpeta
-        const meta = JSON.stringify({
-          name:fileName,
-          mimeType:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          parents: targetId ? [targetId] : []
-        });
-        const form = new FormData();
-        form.append("metadata", new Blob([meta],{type:"application/json"}));
-        form.append("file", pptxBlob);
-        const upResp = await fetch(
-          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
-          {method:"POST", headers:{"Authorization":"Bearer "+driveAccessToken}, body:form}
-        );
-        const uploaded = await upResp.json();
-        if (uploaded.id) {
-          const folderUrl = folderData.id ? `https://drive.google.com/drive/folders/${folderData.id}` : driveInput;
-          drEl.innerHTML = `✅ <a class="dl" href="${uploaded.webViewLink}" target="_blank">📄 Abrir cotización en Drive</a> &nbsp;|&nbsp; <a class="dl" href="${folderUrl}" target="_blank">📁 Carpeta ${companyName}</a>`;
-          drEl.style.display = "block";
-          showSt(`✓ Cotización guardada en tu Drive — carpeta "${companyName}".`,"ok");
-        } else { throw new Error("No se pudo subir"); }
-      } catch(err) {
-        console.error("Drive error:", err);
-        await pres.writeFile({fileName});
-        drEl.style.display = "none";
-        showSt("✓ Descargada localmente (Drive error: "+err.message+").","ok");
-      }
-    } else {
-      await pres.writeFile({fileName});
-      drEl.style.display = "none";
-      showSt("✓ Cotización descargada. Conecta tu Drive para guardarla automáticamente.","ok");
-    }
-  }catch(err){console.error(err);showSt("Error: "+err.message,"er");}
-  finally{btn.disabled=false;}
-}
-function showSt(msg,type){const el=document.getElementById("st");el.className="st "+type;el.textContent=msg;}
-</script>
-</body>
-</html>
+>
