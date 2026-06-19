@@ -449,7 +449,6 @@ function updateTotal(){
   } else bdEl.style.display="none";
 }
 
-initDriveAuth();
 (function(){const t=new Date();document.getElementById("quoteDate").value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;})();
 
 function fmtDate(ds){
@@ -713,4 +712,22 @@ function disconnectDrive() {
   document.getElementById('drive-email').textContent = '';
 }
 
->
+
+
+window.addEventListener("load", function() {
+  if (window.google && window.google.accounts) {
+    initDriveAuth();
+  } else {
+    document.querySelector('[onclick="authDrive()"]').addEventListener('click', function() {
+      if (!window.google?.accounts?.oauth2) {
+        alert("Google no ha cargado aún. Espera 2 segundos y vuelve a intentar.");
+        return;
+      }
+      initDriveAuth();
+      setTimeout(function(){ if(tokenClient) tokenClient.requestAccessToken({prompt:'select_account'}); }, 500);
+    });
+  }
+});
+</script>
+</body>
+</html>
