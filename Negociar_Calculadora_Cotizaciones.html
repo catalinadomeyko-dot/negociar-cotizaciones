@@ -284,6 +284,13 @@ const T = {
 };
 
 // ── PRICING ──────────────────────────────────────────────────────────────────
+function getPrecioLista(pax) {
+  // Precios lista por tramo
+  if (pax <= 18)  return 9.4;
+  if (pax <= 29)  return 7.6;
+  if (pax <= 39)  return 6.5;
+  return 5.5;
+}
 function calcUFTotal(pax, isMining) {
   if (isMining) {
     if (pax<=10) return 220;
@@ -292,11 +299,8 @@ function calcUFTotal(pax, isMining) {
     if (pax<=40) return 455 +(pax-30)*((511-455)/10);
     return 511+(pax-40)*12.8;
   } else {
-    if (pax<=10) return 94.2;
-    if (pax<=20) return 94.2 +(pax-10)*((151.3-94.2)/10);
-    if (pax<=30) return 151.3+(pax-20)*((194.7-151.3)/10);
-    if (pax<=40) return 194.7+(pax-30)*((218.5-194.7)/10);
-    return 218.5+(pax-40)*5.5;
+    // Empresa: precio unitario fijo por tramo × personas
+    return Math.round(getPrecioLista(pax) * pax * 10) / 10;
   }
 }
 // Plan Full: Negociación Estratégica + Negociación Avanzada (mismo grupo)
@@ -312,9 +316,12 @@ function calcRow(id,pax,fin,isMining){
   return calcUF(pax, tipo, fin);
 }
 function calcUF(pax,tipo,fin){
-  if(fin==="sence") return {total:pax*10,unitario:10};
-  const t=Math.round(calcUFTotal(pax,tipo==="minera")*10)/10;
-  return {total:t, unitario:Math.round((t/pax)*100)/100};
+  if(fin==="sence") return {total:pax*10,unitario:10,precioLista:10};
+  const isMining = tipo==="minera";
+  const t=Math.round(calcUFTotal(pax,isMining)*10)/10;
+  const unitario=Math.round((t/pax)*100)/100;
+  const precioLista = isMining ? unitario : getPrecioLista(pax);
+  return {total:t, unitario, precioLista};
 }
 // Returns true if both neg-est and neg-av selected with same pax count
 function isFullPlan(){
@@ -568,7 +575,7 @@ async function buildPPTX(data){
     // Descripción: course name + small unitario note
     slide.addText([
       {text:line.courseName+"\n", options:{fontSize:10}},
-      {text:"Valor unitario por persona "+ufToStr2(line.unitario)+".", options:{fontSize:7}}
+      {text:"Precio lista: "+ufToStr2(line.precioLista ?? line.unitario)+" por persona.", options:{fontSize:7}}
     ], {
       x:col1x+0.1, y:rowY+0.05, w:COL_W[1]-0.15, h:DAT_H-0.1,
       fontSize:10, fontFace:"Montserrat", color:DG, valign:"middle", margin:0
@@ -673,20 +680,20 @@ async function genQuote(){
       const pax=parseInt(document.getElementById("pax-neg-est").value)||1;
       const fpTotal=calcFullPlanTotal(pax);
       const fpUnit=Math.round(fpTotal/pax*100)/100;
-      lines.push({pax,courseName:"Plan Full: Negociación Estratégica + Negociación Avanzada",unitario:fpUnit,total:fpTotal});
+      lines.push({pax,courseName:"Plan Full: Negociación Estratégica + Negociación Avanzada",unitario:fpUnit,precioLista:fpUnit,total:fpTotal});
       grand+=fpTotal;
     } else {
       ["neg-est","neg-av"].filter(id=>sel().includes(id)).forEach(id=>{
         const pax=parseInt(document.getElementById("pax-"+id).value)||1;
         const r=calcRow(id,pax,fin,isMining);
-        lines.push({pax,courseName:cNames[id],unitario:r.unitario,total:r.total});
+        lines.push({pax,courseName:cNames[id],unitario:r.unitario,precioLista:r.precioLista,total:r.total});
         grand+=r.total;
       });
     }
     if(sel().includes("com-est")){
       const pax=parseInt(document.getElementById("pax-com-est").value)||1;
       const r=calcRow("com-est",pax,fin,isMining);
-      lines.push({pax,courseName:cNames["com-est"],unitario:r.unitario,total:r.total});
+      lines.push({pax,courseName:cNames["com-est"],unitario:r.unitario,precioLista:r.precioLista,total:r.total});
       grand+=r.total;
     }
     if(lines.length===0){alert("Selecciona al menos un programa.");btn.disabled=false;return;}
