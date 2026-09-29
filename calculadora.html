@@ -243,7 +243,9 @@ function calcRow(id,pax,fin,isMining){
 function calcUF(pax,tipo,fin){
   const t=Math.round(calcUFTotal(pax,tipo==="minera")*10)/10;
   if(fin==="sence"){
-    const ts=Math.round(t*1.2*10)/10;
+    // Santiago: neto ÷ 0.8 (×1.25) | Fuera: neto × 1.5
+    const mult = (loc==="fuera") ? 1.5 : 1.25;
+    const ts=Math.round(t*mult*10)/10;
     return {total:ts, unitario:Math.round((ts/pax)*100)/100};
   }
   return {total:t, unitario:Math.round((t/pax)*100)/100};
@@ -282,8 +284,17 @@ function setFin(type){
   document.getElementById("btn-empresa").classList.toggle("on",type==="empresa");
   document.getElementById("btn-sence").classList.toggle("on",type==="sence");
   document.getElementById("sence-note").classList.toggle("on",type==="sence");
+  document.getElementById("sence-location-field").style.display=type==="sence"?"block":"none";
   document.getElementById("total-fin").textContent=type==="sence"?"SENCE":"Empresa";
   document.getElementById("companyType").disabled=(type==="sence");
+  updateAll();
+}
+
+let loc="santiago";
+function setLoc(type){
+  loc=type;
+  document.getElementById("btn-santiago").classList.toggle("on",type==="santiago");
+  document.getElementById("btn-fuera").classList.toggle("on",type==="fuera");
   updateAll();
 }
 function updateRow(id){
@@ -327,7 +338,7 @@ function updateTotal(){
     const pax=parseInt(document.getElementById("pax-neg-est").value)||10;
     const isMiningFP=document.getElementById("companyType").value==="minera";
     let fpTotal=Math.round(calcFullPlanTotal(pax,isMiningFP)*10)/10;
-    if(fin==="sence") fpTotal=Math.round(fpTotal*1.2*10)/10;
+    if(fin==="sence"){ const mult=(loc==="fuera")?1.5:1.25; fpTotal=Math.round(fpTotal*mult*10)/10; }
     const fpUnitario=Math.round((fpTotal/pax)*100)/100;
     total+=fpTotal;
     rows.push({id:"full-plan",pax,r:{total:fpTotal,unitario:fpUnitario},isFullPlan:true});
@@ -598,7 +609,7 @@ async function genQuote(){
     if(fp){
       const pax=parseInt(document.getElementById("pax-neg-est").value)||1;
       let fpTotal=calcFullPlanTotal(pax,isMining);
-      if(fin==="sence") fpTotal=Math.round(fpTotal*1.2*10)/10;
+      if(fin==="sence"){ const mult=(loc==="fuera")?1.5:1.25; fpTotal=Math.round(fpTotal*mult*10)/10; }
       const fpUnit=Math.round(fpTotal/pax*100)/100;
       lines.push({pax,courseName:"Plan Full: Negociación Estratégica + Negociación Avanzada",unitario:fpUnit,total:fpTotal});
       grand+=fpTotal;
