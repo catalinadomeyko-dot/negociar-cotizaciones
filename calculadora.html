@@ -192,11 +192,15 @@ const T = {
 // ── PRICING ──────────────────────────────────────────────────────────────────
 function calcUFTotal(pax, isMining) {
   if (isMining) {
-    if (pax<=10) return 220;
-    if (pax<=20) return 220+(pax-10)*((354-220)/10);
-    if (pax<=30) return 354+(pax-20)*((455-354)/10);
-    if (pax<=40) return 455+(pax-30)*((511-455)/10);
-    return 511+(pax-40)*12.8;
+    // 1 curso minera: ancla fija + extras al precio del tramo anterior
+    if (pax<=10) return 122.5;
+    if (pax<20)  return 122.5+(pax-10)*12.3;
+    if (pax<=20) return 196.7;
+    if (pax<30)  return 196.7+(pax-20)*9.8;
+    if (pax<=30) return 253;
+    if (pax<40)  return 253+(pax-30)*8.4;
+    if (pax<=40) return 284;
+    return 284+(pax-40)*7.1;
   } else {
     // 1 curso: ancla fija + extras al precio unitario del tramo ANTERIOR
     if (pax<=10) return 94.2;           // ancla ≤10
@@ -210,7 +214,18 @@ function calcUFTotal(pax, isMining) {
   }
 }
 // Plan Full: Negociación Estratégica + Negociación Avanzada (mismo grupo)
-function calcFullPlanTotal(pax) {
+function calcFullPlanTotal(pax, isMining) {
+  if (isMining) {
+    // Plan full minera: ancla fija + extras al precio del tramo anterior
+    if (pax<=10) return 220;
+    if (pax<20)  return 220+(pax-10)*22;
+    if (pax<=20) return 354;
+    if (pax<30)  return 354+(pax-20)*17.7;
+    if (pax<=30) return 455;
+    if (pax<40)  return 455+(pax-30)*15.2;
+    if (pax<=40) return 511;
+    return 511+(pax-40)*12.8;
+  }
   // Plan full: ancla fija + extras al precio unitario del tramo ANTERIOR
   if (pax<=10) return 169.6;            // ancla ≤10
   if (pax<20)  return 169.6+(pax-10)*17;    // 11-19: +17 p/p extra
@@ -310,7 +325,8 @@ function updateTotal(){
   if(fp){
     // Full Plan: treat neg-est+neg-av as one bundle
     const pax=parseInt(document.getElementById("pax-neg-est").value)||10;
-    let fpTotal=Math.round(calcFullPlanTotal(pax)*10)/10;
+    const isMiningFP=document.getElementById("companyType").value==="minera";
+    let fpTotal=Math.round(calcFullPlanTotal(pax,isMiningFP)*10)/10;
     if(fin==="sence") fpTotal=Math.round(fpTotal*1.2*10)/10;
     const fpUnitario=Math.round((fpTotal/pax)*100)/100;
     total+=fpTotal;
@@ -581,7 +597,7 @@ async function genQuote(){
     const fp=isFullPlan();
     if(fp){
       const pax=parseInt(document.getElementById("pax-neg-est").value)||1;
-      let fpTotal=calcFullPlanTotal(pax);
+      let fpTotal=calcFullPlanTotal(pax,isMining);
       if(fin==="sence") fpTotal=Math.round(fpTotal*1.2*10)/10;
       const fpUnit=Math.round(fpTotal/pax*100)/100;
       lines.push({pax,courseName:"Plan Full: Negociación Estratégica + Negociación Avanzada",unitario:fpUnit,total:fpTotal});
