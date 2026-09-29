@@ -198,28 +198,28 @@ function calcUFTotal(pax, isMining) {
     if (pax<=40) return 455+(pax-30)*((511-455)/10);
     return 511+(pax-40)*12.8;
   } else {
-    // 1 curso: anclas fijas en tramos, extra al precio unitario del tramo anterior
-    if (pax<=10) return 94.2;
-    if (pax<20)  return 94.2+(pax-10)*9.4;
-    if (pax===20) return 170;
-    if (pax<30)  return 170+(pax-20)*8.5;
-    if (pax===30) return 234;
-    if (pax<40)  return 234+(pax-30)*7.8;
-    if (pax===40) return 276;
-    return 276+(pax-40)*6.9;
+    // 1 curso: ancla fija + extras al precio unitario del tramo ANTERIOR
+    if (pax<=10) return 94.2;           // ancla ≤10
+    if (pax<20)  return 94.2+(pax-10)*9.4;   // 11-19: +9.4 p/p extra
+    if (pax<=20) return 170;            // ancla 20
+    if (pax<30)  return 170+(pax-20)*8.5;    // 21-29: +8.5 p/p extra
+    if (pax<=30) return 234;            // ancla 30
+    if (pax<40)  return 234+(pax-30)*7.8;    // 31-39: +7.8 p/p extra
+    if (pax<=40) return 276;            // ancla 40
+    return 276+(pax-40)*6.9;            // 41+: +6.9 p/p extra
   }
 }
 // Plan Full: Negociación Estratégica + Negociación Avanzada (mismo grupo)
 function calcFullPlanTotal(pax) {
-  // Plan full: ancla fija en cada tramo, extra al precio unitario del tramo actual
-  if (pax<=10) return 169.6;
-  if (pax<20)  return 169.6+(pax-10)*15.3;
-  if (pax===20) return 306;
-  if (pax<30)  return 306+(pax-20)*14.04;
-  if (pax===30) return 421.2;
-  if (pax<40)  return 421.2+(pax-30)*14.04;  // 31-39: sigue pagando 14.04 p/p
-  if (pax===40) return 496.8;
-  return 496.8+(pax-40)*12.42;  // 41+: 12.42 p/p
+  // Plan full: ancla fija + extras al precio unitario del tramo ANTERIOR
+  if (pax<=10) return 169.6;            // ancla ≤10
+  if (pax<20)  return 169.6+(pax-10)*17;    // 11-19: +17 p/p extra
+  if (pax<=20) return 306;             // ancla 20
+  if (pax<30)  return 306+(pax-20)*15.3;    // 21-29: +15.3 p/p extra
+  if (pax<=30) return 421.2;           // ancla 30
+  if (pax<40)  return 421.2+(pax-30)*14.04; // 31-39: +14.04 p/p extra
+  if (pax<=40) return 496.8;           // ancla 40
+  return 496.8+(pax-40)*12.42;         // 41+: +12.42 p/p extra
 }
 function calcRow(id,pax,fin,isMining){
   const tipo = isMining ? "minera" : "empresa";
