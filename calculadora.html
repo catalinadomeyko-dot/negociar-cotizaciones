@@ -98,6 +98,12 @@
         <li>Aplica para empresas contribuyentes en Chile. Los valores no incluyen coffee break, arriendo de sala ni traslados.</li>
       </ul>
     </div>
+    <div id="sence-location-field" style="display:none;margin-top:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:#666;">
+        <input type="checkbox" id="chk-fuera" onchange="setLoc(this.checked?'fuera':'santiago')" style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;">
+        Fuera de Santiago <span style="color:#aaa;">(aplica recargo relator: neto × 1,5)</span>
+      </label>
+    </div>
   </div>
 
   <div class="card">
@@ -285,6 +291,7 @@ function setFin(type){
   document.getElementById("btn-sence").classList.toggle("on",type==="sence");
   document.getElementById("sence-note").classList.toggle("on",type==="sence");
   document.getElementById("sence-location-field").style.display=type==="sence"?"block":"none";
+  if(type!=="sence"){ document.getElementById("chk-fuera").checked=false; loc="santiago"; }
   document.getElementById("total-fin").textContent=type==="sence"?"SENCE":"Empresa";
   document.getElementById("companyType").disabled=(type==="sence");
   updateAll();
@@ -293,8 +300,6 @@ function setFin(type){
 let loc="santiago";
 function setLoc(type){
   loc=type;
-  document.getElementById("btn-santiago").classList.toggle("on",type==="santiago");
-  document.getElementById("btn-fuera").classList.toggle("on",type==="fuera");
   updateAll();
 }
 function updateRow(id){
