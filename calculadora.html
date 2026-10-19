@@ -562,22 +562,26 @@ async function buildPPTX(data){
     ? [
         "La consultora emite factura exenta de IVA.",
         "OTEC Colaboro Learning: gestiona toda la documentación con SENCE y seguimiento del proceso sin costo adicional.",
-        "Aplica para empresas contribuyentes en Chile."
+        "Aplica para empresas contribuyentes en Chile. Los valores no incluyen coffee break, arriendo de sala ni traslados correspondientes a viáticos."
       ]
-    : ["La consultora emite factura exenta de IVA."];
+    : [
+        "La consultora emite factura exenta de IVA.",
+        "Los valores no incluyen coffee break, arriendo de sala ni traslados correspondientes a viáticos."
+      ];
 
+  let noteY = NOTES_Y;
   noteItems.forEach((txt, i) => {
-    const lineY = NOTES_Y + i * (NOTE_LINE_H + 0.08);  // 0.08 extra gap between items
-    // Orange bullet dot
+    const lineH = NOTE_LINE_H * (txt.length > 60 ? 2 : 1);
+    if(i > 0) noteY += 0.08; // gap between items
     slide.addText("•", {
-      x:TBL_X, y:lineY, w:0.2, h:NOTE_LINE_H,
+      x:TBL_X, y:noteY, w:0.2, h:lineH,
       fontSize:10, fontFace:"Montserrat", color:OR, align:"left", valign:"top", margin:0
     });
-    // Note text
     slide.addText(txt, {
-      x:TBL_X+0.2, y:lineY, w:TBL_W-0.2, h:NOTE_LINE_H * (txt.length > 60 ? 2 : 1),
+      x:TBL_X+0.2, y:noteY, w:TBL_W-0.2, h:lineH,
       fontSize:10, fontFace:"Montserrat", color:DG, valign:"top", margin:0
     });
+    noteY += lineH;
   });
 
 
