@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-  <!-- v2.3 -->
+  <!-- v2.4 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calculadora de Cotizaciones — Negociar®</title>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -570,17 +570,24 @@ async function buildPPTX(data){
         "Los valores no incluyen coffee break, arriendo de sala ni traslados correspondientes a viáticos."
       ];
 
-  let noteY = NOTES_Y;
+  // Adjust start Y based on number of notes to avoid overlapping firma (y=8.42)
+  const nCount = noteItems.length;
+  const noteStartY = nCount >= 4 ? 6.6 : 7.0;
+  const noteFontSz = nCount >= 4 ? 9 : 10;
+  const noteLineH = nCount >= 4 ? 0.24 : 0.28;
+  const noteGap = nCount >= 4 ? 0.06 : 0.08;
+
+  let noteY = noteStartY;
   noteItems.forEach((txt, i) => {
-    const lineH = NOTE_LINE_H * (txt.length > 60 ? 2 : 1);
-    if(i > 0) noteY += 0.08; // gap between items
+    const lineH = noteLineH * (txt.length > 60 ? 2 : 1);
+    if(i > 0) noteY += noteGap;
     slide.addText("•", {
       x:TBL_X, y:noteY, w:0.2, h:lineH,
-      fontSize:10, fontFace:"Montserrat", color:OR, align:"left", valign:"top", margin:0
+      fontSize:noteFontSz, fontFace:"Montserrat", color:OR, align:"left", valign:"top", margin:0
     });
     slide.addText(txt, {
       x:TBL_X+0.2, y:noteY, w:TBL_W-0.2, h:lineH,
-      fontSize:10, fontFace:"Montserrat", color:DG, valign:"top", margin:0
+      fontSize:noteFontSz, fontFace:"Montserrat", color:DG, valign:"top", margin:0
     });
     noteY += lineH;
   });
