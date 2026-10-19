@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-  <!-- v2.2 -->
+  <!-- v2.3 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calculadora de Cotizaciones — Negociar®</title>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -561,8 +561,9 @@ async function buildPPTX(data){
   const noteItems = data.isSence
     ? [
         "La consultora emite factura exenta de IVA.",
+        "Los valores no incluyen coffee break, arriendo de sala ni traslados correspondientes a viáticos.",
         "OTEC Colaboro Learning: gestiona toda la documentación con SENCE y seguimiento del proceso sin costo adicional.",
-        "Aplica para empresas contribuyentes en Chile. Los valores no incluyen coffee break, arriendo de sala ni traslados correspondientes a viáticos."
+        "Aplica para empresas contribuyentes en Chile."
       ]
     : [
         "La consultora emite factura exenta de IVA.",
