@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-  <!-- v2.4 -->
+  <!-- v2.5 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calculadora de Cotizaciones — Negociar®</title>
 <script src="https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -94,8 +94,9 @@
       <strong>Nota SENCE —</strong> se incluirá en la cotización:
       <ul>
         <li>La consultora emite factura exenta de IVA.</li>
+        <li>Los valores no incluyen coffee break, arriendo de sala ni traslados correspondientes a viáticos.</li>
         <li>OTEC Colaboro Learning: gestiona toda la documentación con SENCE y seguimiento del proceso sin costo adicional.</li>
-        <li>Aplica para empresas contribuyentes en Chile. Los valores no incluyen coffee break, arriendo de sala ni traslados.</li>
+        <li>Aplica para empresas contribuyentes en Chile.</li>
       </ul>
     </div>
     <div id="sence-location-field" style="display:none;margin-top:12px;">
@@ -618,7 +619,7 @@ async function genQuote(){
     if(!companyName){alert("Ingresa el nombre de la empresa.");btn.disabled=false;return;}
     if(!dateVal){alert("Selecciona una fecha.");btn.disabled=false;return;}
     const date=dateVal;
-    const fin=document.querySelector(".fin-btn.active")?.dataset.fin||"empresa";
+    const fin=document.getElementById("btn-sence").classList.contains("on")?"sence":"empresa";
     const isMining=document.getElementById("companyType").value==="minera";
     const lines=[];
     let grand=0;
